@@ -73,12 +73,42 @@
         }
 
         .logs {
-            height: 200px;
+            height: 150px;
             overflow-y: auto;
             background: #0f1117;
             border: 1px solid #2a2d3a;
             padding: 10px;
             font-size: 0.9rem;
+            margin-bottom: 15px;
+        }
+
+        /* Trade History Table */
+        .trade-history {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+
+        .trade-history th,
+        .trade-history td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .trade-history th {
+            background: #2a2d3a;
+        }
+
+        .trade-history tr:nth-child(even) {
+            background: #191b23;
+        }
+
+        .profit {
+            color: #2ecc71;
+        }
+
+        .loss {
+            color: #e74c3c;
         }
 
         footer {
@@ -119,6 +149,35 @@
                 <p>📈 R_75 | Price: 123.4567</p>
                 <p>💡 RSI = 28 → Oversold → BUY</p>
             </div>
+
+            <h2>Trade History</h2>
+            <table class="trade-history">
+                <thead>
+                    <tr>
+                        <th>Time</th>
+                        <th>Type</th>
+                        <th>Entry</th>
+                        <th>Exit</th>
+                        <th>P/L</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>12:45:10</td>
+                        <td class="buy">BUY</td>
+                        <td>123.45</td>
+                        <td>124.10</td>
+                        <td class="profit">+0.65</td>
+                    </tr>
+                    <tr>
+                        <td>12:50:32</td>
+                        <td class="sell">SELL</td>
+                        <td>124.20</td>
+                        <td>124.80</td>
+                        <td class="loss">-0.60</td>
+                    </tr>
+                </tbody>
+            </table>
         </div>
     </main>
 
