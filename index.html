@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Deriv Bot Dashboard</title>
+    <style>
+        body {
+            margin: 0;
+            font-family: Arial, sans-serif;
+            background: #0f1117;
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+
+        header {
+            background: #1c1f2a;
+            padding: 15px 30px;
+            font-size: 1.5rem;
+            font-weight: bold;
+            border-bottom: 1px solid #2a2d3a;
+        }
+
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            grid-gap: 20px;
+            padding: 20px;
+        }
+
+        .card {
+            background: #1c1f2a;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .chart {
+            height: 300px;
+            background: #2a2d3a;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.2rem;
+            color: #aaa;
+        }
+
+        .signals {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+
+        .signal {
+            padding: 12px;
+            border-radius: 6px;
+            font-weight: bold;
+            text-align: center;
+        }
+
+        .buy {
+            background: #143d26;
+            color: #2ecc71;
+        }
+
+        .sell {
+            background: #3d1414;
+            color: #e74c3c;
+        }
+
+        .logs {
+            height: 200px;
+            overflow-y: auto;
+            background: #0f1117;
+            border: 1px solid #2a2d3a;
+            padding: 10px;
+            font-size: 0.9rem;
+        }
+
+        footer {
+            background: #1c1f2a;
+            padding: 10px;
+            text-align: center;
+            font-size: 0.8rem;
+            border-top: 1px solid #2a2d3a;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        📈 Deriv Trading Bot Dashboard
+    </header>
+
+    <main>
+        <!-- Left Side -->
+        <div class="card">
+            <h2>Live Chart</h2>
+            <div class="chart">[ Chart Placeholder ]</div>
+        </div>
+
+        <!-- Right Side -->
+        <div class="card">
+            <h2>Signals</h2>
+            <div class="signals">
+                <div class="signal buy">BUY Signal</div>
+                <div class="signal sell">SELL Signal</div>
+            </div>
+
+            <h2 style="margin-top:20px;">Logs</h2>
+            <div class="logs">
+                <p>✅ Connected to WebSocket</p>
+                <p>🔐 Authorized as VRTC123456</p>
+                <p>📈 R_75 | Price: 123.4567</p>
+                <p>💡 RSI = 28 → Oversold → BUY</p>
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        © 2025 Deriv Bot Demo UI – Built with ❤️
+    </footer>
+
+</body>
+
+</html>
