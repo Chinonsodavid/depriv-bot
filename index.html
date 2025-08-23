@@ -1,122 +1,333 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
-    <meta charset="UTF-8">
-    <title>Deriv Bot Dashboard</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Deriv Trading Bot – Dashboard</title>
+
+    <!-- Google Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
     <style>
+        :root {
+            --bg: #0b0d12;
+            --card: #0f1319;
+            --muted: #9aa3b2;
+            --accent: #6ee7b7;
+            --danger: #ff7b7b;
+            --glass: rgba(255, 255, 255, 0.03);
+            --card-2: #12151b;
+        }
+
+        * {
+            box-sizing: border-box
+        }
+
         body {
             margin: 0;
-            font-family: Arial, sans-serif;
-            background: #0f1117;
-            color: #fff;
+            font-family: Inter, system-ui, Segoe UI, Roboto, "Helvetica Neue", Arial;
+            background: linear-gradient(180deg, #071018 0%, #071620 100%);
+            color: #e6eef6;
+            min-height: 100vh;
             display: flex;
             flex-direction: column;
-            height: 100vh;
         }
 
         header {
-            background: #1c1f2a;
-            padding: 15px 30px;
-            font-size: 1.5rem;
-            font-weight: bold;
-            border-bottom: 1px solid #2a2d3a;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 14px 20px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+            background: linear-gradient(90deg, rgba(20, 25, 32, 0.8), rgba(8, 12, 18, 0.6));
+            gap: 16px;
+            position: sticky;
+            top: 0;
+            z-index: 20;
         }
 
-        main {
-            flex: 1;
-            display: grid;
-            grid-template-columns: 2fr 1fr;
-            grid-gap: 20px;
-            padding: 20px;
+        .brand {
+            display: flex;
+            gap: 12px;
+            align-items: center;
         }
 
-        .card {
-            background: #1c1f2a;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
-        }
-
-        .chart {
-            height: 300px;
-            background: #2a2d3a;
+        .brand .logo {
+            width: 40px;
+            height: 40px;
             border-radius: 8px;
+            background: linear-gradient(135deg, #1f7a6d, #0bbf86);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.2rem;
-            color: #aaa;
+            font-weight: 700;
+            color: #00261a;
+            box-shadow: 0 6px 18px rgba(0, 0, 0, 0.45), inset 0 -4px 8px rgba(255, 255, 255, 0.02);
+            font-size: 16px;
         }
 
+        .title {
+            font-weight: 700;
+            font-size: 1.05rem;
+            letter-spacing: 0.2px;
+        }
+
+        .status {
+            font-size: 0.9rem;
+            color: var(--muted);
+        }
+
+        main {
+            display: grid;
+            grid-template-columns: 1.6fr 0.9fr;
+            gap: 20px;
+            padding: 20px;
+            align-items: start;
+        }
+
+        /* responsive */
+        @media (max-width:1000px) {
+            main {
+                grid-template-columns: 1fr;
+                padding: 14px;
+            }
+        }
+
+        .card {
+            background: linear-gradient(180deg, var(--card) 0%, var(--card-2) 100%);
+            border-radius: 12px;
+            padding: 14px;
+            box-shadow: 0 8px 30px rgba(5, 8, 12, 0.6);
+            border: 1px solid rgba(255, 255, 255, 0.03);
+        }
+
+        /* Left column */
+        .chart-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .chart-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .chart-title {
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+
+        .meta {
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        #liveChart {
+            width: 100%;
+            height: 420px;
+            border-radius: 8px;
+            background: linear-gradient(180deg, #071721 10%, #08131a 100%);
+            padding: 10px;
+        }
+
+        /* small stats row */
+        .stats {
+            display: flex;
+            gap: 12px;
+            margin-top: 6px;
+            flex-wrap: wrap;
+        }
+
+        .stat {
+            background: var(--glass);
+            padding: 8px 12px;
+            border-radius: 8px;
+            color: var(--muted);
+            font-size: 0.9rem;
+        }
+
+        /* Right column */
         .signals {
             display: flex;
             flex-direction: column;
             gap: 10px;
+            margin-bottom: 12px;
         }
 
-        .signal {
+        .signal-card {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 10px;
             padding: 12px;
-            border-radius: 6px;
-            font-weight: bold;
+            border-radius: 10px;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.01), rgba(255, 255, 255, 0.008));
+            border: 1px solid rgba(255, 255, 255, 0.02);
+        }
+
+        .signal-left {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .signal-pill {
+            min-width: 46px;
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: 700;
             text-align: center;
+            color: #03140b;
         }
 
-        .buy {
-            background: #143d26;
-            color: #2ecc71;
+        .signal-pill.buy {
+            background: linear-gradient(90deg, #23c88a, #6ee7b7);
         }
 
-        .sell {
-            background: #3d1414;
-            color: #e74c3c;
+        .signal-pill.sell {
+            background: linear-gradient(90deg, #ff7b7b, #ff6b6b);
+        }
+
+        .signal-meta {
+            color: var(--muted);
+            font-size: 0.9rem;
         }
 
         .logs {
-            height: 150px;
-            overflow-y: auto;
-            background: #0f1117;
-            border: 1px solid #2a2d3a;
+            margin-top: 12px;
+            background: rgba(0, 0, 0, 0.35);
             padding: 10px;
+            border-radius: 8px;
+            max-height: 180px;
+            overflow: auto;
             font-size: 0.9rem;
-            margin-bottom: 15px;
+            color: #cfe3f0;
         }
 
-        /* Trade History Table */
+        .log-line {
+            padding: 6px 8px;
+            border-radius: 6px;
+            margin-bottom: 6px;
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            font-family: monospace;
+        }
+
+        .log-info {
+            color: #9fd7ff;
+        }
+
+        .log-ok {
+            color: #7be6a6;
+        }
+
+        .log-warn {
+            color: #ffd57a;
+        }
+
+        .log-err {
+            color: #ff9aa2;
+        }
+
+        /* trade history */
         .trade-history {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.85rem;
+            margin-top: 12px;
+            font-size: 0.9rem;
         }
 
         .trade-history th,
         .trade-history td {
-            padding: 8px;
-            text-align: center;
+            padding: 8px 10px;
+            text-align: left;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.03);
         }
 
-        .trade-history th {
-            background: #2a2d3a;
-        }
-
-        .trade-history tr:nth-child(even) {
-            background: #191b23;
+        .trade-history thead th {
+            color: var(--muted);
+            font-size: 0.85rem;
+            font-weight: 600;
         }
 
         .profit {
-            color: #2ecc71;
+            color: #7be6a6;
+            font-weight: 700;
         }
 
         .loss {
-            color: #e74c3c;
+            color: #ff8b8b;
+            font-weight: 700;
+        }
+
+        /* start/stop floating */
+        .fab {
+            position: fixed;
+            right: 18px;
+            bottom: 18px;
+            z-index: 60;
+            background: linear-gradient(135deg, #12c57c, #06a07c);
+            color: #03140b;
+            border: none;
+            padding: 14px 16px;
+            border-radius: 50px;
+            font-weight: 700;
+            cursor: pointer;
+            box-shadow: 0 12px 30px rgba(6, 100, 80, 0.25);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 0.95rem;
+        }
+
+        .fab.stop {
+            background: linear-gradient(135deg, #ff7b7b, #ff6b6b);
+            color: #220a0a;
+        }
+
+        /* heartbeat line small */
+        .heartbeat {
+            color: var(--muted);
+            font-size: 0.9rem;
+            margin-left: 6px;
+        }
+
+        /* new trade highlight animation */
+        .new-row {
+            animation: newTrade 1.2s ease;
+        }
+
+        @keyframes newTrade {
+            0% {
+                background: rgba(123, 201, 255, 0.06);
+                transform: translateY(-6px);
+            }
+
+            50% {
+                background: rgba(123, 201, 255, 0.03);
+                transform: translateY(0);
+            }
+
+            100% {
+                background: transparent;
+            }
         }
 
         footer {
-            background: #1c1f2a;
-            padding: 10px;
+            padding: 12px 20px;
             text-align: center;
-            font-size: 0.8rem;
-            border-top: 1px solid #2a2d3a;
+            color: var(--muted);
+            font-size: 0.85rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.02);
+            margin-top: auto;
         }
     </style>
 </head>
@@ -124,67 +335,382 @@
 <body>
 
     <header>
-        📈 Deriv Trading Bot Dashboard
+        <div class="brand">
+            <div class="logo">DB</div>
+            <div>
+                <div class="title">Deriv Trading Bot</div>
+                <div class="status" id="connStatus">🔌 Disconnected</div>
+            </div>
+        </div>
+
+        <div style="display:flex;align-items:center;gap:16px">
+            <div style="text-align:right">
+                <div style="font-weight:700">Balance</div>
+                <div id="balance" style="color:var(--accent)">10000.00 USD</div>
+            </div>
+            <div class="heartbeat" id="heartbeat">Idle</div>
+        </div>
     </header>
 
     <main>
-        <!-- Left Side -->
-        <div class="card">
-            <h2>Live Chart</h2>
-            <div class="chart">[ Chart Placeholder ]</div>
-        </div>
-
-        <!-- Right Side -->
-        <div class="card">
-            <h2>Signals</h2>
-            <div class="signals">
-                <div class="signal buy">BUY Signal</div>
-                <div class="signal sell">SELL Signal</div>
+        <!-- LEFT -->
+        <section class="card chart-wrap">
+            <div class="chart-top">
+                <div>
+                    <div class="chart-title">R_75 — Live</div>
+                    <div class="meta">Multi-Timeframe: HTF=2H/1H → ETF=15M/5M</div>
+                </div>
+                <div class="meta">Strategy: MR (BB) & CONT (EMA) • Engulfing confirmations</div>
             </div>
 
-            <h2 style="margin-top:20px;">Logs</h2>
-            <div class="logs">
-                <p>✅ Connected to WebSocket</p>
-                <p>🔐 Authorized as VRTC123456</p>
-                <p>📈 R_75 | Price: 123.4567</p>
-                <p>💡 RSI = 28 → Oversold → BUY</p>
+            <div id="liveChart">
+                <canvas id="chartCanvas"></canvas>
             </div>
 
-            <h2>Trade History</h2>
-            <table class="trade-history">
-                <thead>
-                    <tr>
-                        <th>Time</th>
-                        <th>Type</th>
-                        <th>Entry</th>
-                        <th>Exit</th>
-                        <th>P/L</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <td>12:45:10</td>
-                        <td class="buy">BUY</td>
-                        <td>123.45</td>
-                        <td>124.10</td>
-                        <td class="profit">+0.65</td>
-                    </tr>
-                    <tr>
-                        <td>12:50:32</td>
-                        <td class="sell">SELL</td>
-                        <td>124.20</td>
-                        <td>124.80</td>
-                        <td class="loss">-0.60</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+            <div class="stats">
+                <div class="stat" id="statPrice">Price: —</div>
+                <div class="stat" id="statRSI">RSI: —</div>
+                <div class="stat" id="statEMA">EMA(50): —</div>
+                <div class="stat" id="statBB">BB: —</div>
+            </div>
+        </section>
+
+        <!-- RIGHT -->
+        <aside class="card">
+            <div style="display:flex; align-items:center; justify-content:space-between;">
+                <h3 style="margin:0">Signals</h3>
+                <div style="font-size:0.9rem; color:var(--muted)">(HTF → ETF aligned only)</div>
+            </div>
+
+            <div class="signals" id="signalsBox">
+                <!-- signal cards injected here -->
+                <div class="signal-card" id="noSignalCard">
+                    <div class="signal-left">
+                        <div style="font-weight:700">No active signals</div>
+                    </div>
+                    <div class="signal-meta">Waiting for HTF + ETF alignment</div>
+                </div>
+            </div>
+
+            <div style="margin-top:14px;">
+                <h4 style="margin:6px 0">Logs</h4>
+                <div class="logs" id="logs"></div>
+            </div>
+
+            <div style="margin-top:12px;">
+                <h4 style="margin:6px 0">Trade History</h4>
+                <table class="trade-history" id="historyTable">
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Type</th>
+                            <th>Entry</th>
+                            <th>Exit</th>
+                            <th>P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+        </aside>
     </main>
 
-    <footer>
-        © 2025 Deriv Bot Demo UI – Built with ❤️
-    </footer>
+    <footer>© 2025 Deriv Bot Demo UI — built for R_75 • Replace demo inputs with real WebSocket in the script</footer>
 
+    <button class="fab" id="toggleBot">▶ START</button>
+
+    <script>
+        /*********************************************************
+         * Demo Dashboard Core (UI + simulated feed)
+         * - Replace simulateFeed() with your live WebSocket logic.
+         * - Use updateSignal(), addTradeHistory(), addLog() helper functions.
+         *********************************************************/
+
+        const connStatus = document.getElementById('connStatus');
+        const heartbeatEl = document.getElementById('heartbeat');
+        const balanceEl = document.getElementById('balance');
+        const signalsBox = document.getElementById('signalsBox');
+        const logsEl = document.getElementById('logs');
+        const historyBody = document.querySelector('#historyTable tbody');
+        const statPrice = document.getElementById('statPrice');
+        const statRSI = document.getElementById('statRSI');
+        const statEMA = document.getElementById('statEMA');
+        const statBB = document.getElementById('statBB');
+        const toggleBtn = document.getElementById('toggleBot');
+
+        let autoTrading = false;
+        let simulatedConnected = false;
+        let lastHeartbeat = 0;
+
+        // demo account balance used only by UI
+        let accountBalance = 10000.00;
+
+        // Chart setup (line chart for demo)
+        const ctx = document.getElementById('chartCanvas').getContext('2d');
+        const chart = new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Price',
+                    data: [],
+                    borderColor: 'rgba(110,231,183,0.9)',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    tension: 0.16,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: { display: false },
+                    y: {
+                        grid: { color: 'rgba(255,255,255,0.03)' },
+                        ticks: { color: '#9fb8c9' }
+                    }
+                }
+            }
+        });
+
+        // ---------- UI helpers ----------
+        function addLog(text, level = 'info') {
+            const div = document.createElement('div');
+            div.className = 'log-line log-' + (level === 'info' ? 'info' : (level === 'ok' ? 'ok' : (level === 'warn' ? 'warn' : 'err')));
+            div.innerHTML = `<span style="opacity:0.65">[${new Date().toLocaleTimeString()}]</span>&nbsp;<span>${text}</span>`;
+            logsEl.prepend(div);
+            // keep logs short
+            while (logsEl.children.length > 250) logsEl.removeChild(logsEl.lastChild);
+        }
+
+        function clearSignals() {
+            signalsBox.innerHTML = `
+      <div class="signal-card" id="noSignalCard">
+        <div class="signal-left">
+          <div style="font-weight:700">No active signals</div>
+        </div>
+        <div class="signal-meta">Waiting for HTF + ETF alignment</div>
+      </div>`;
+        }
+
+        function showSignal({ type, confidence = 0, htf = '1H', details = '' }) {
+            signalsBox.innerHTML = '';
+            const el = document.createElement('div');
+            el.className = 'signal-card';
+            const pill = document.createElement('div');
+            pill.className = 'signal-pill ' + (type === 'LONG' ? 'buy' : 'sell');
+            pill.textContent = type === 'LONG' ? 'BUY' : 'SELL';
+            const left = document.createElement('div'); left.className = 'signal-left';
+            const meta = document.createElement('div'); meta.className = 'signal-meta';
+            meta.innerHTML = `<div style="font-weight:700">${type === 'LONG' ? 'Long Bias' : 'Short Bias'}</div>
+                      <div style="font-size:0.85rem;color:var(--muted)">${htf} • Confidence ${Math.round(confidence * 100)}%</div>`;
+            left.appendChild(pill);
+            left.appendChild(meta);
+
+            el.appendChild(left);
+
+            const right = document.createElement('div');
+            right.className = 'signal-meta';
+            right.innerHTML = `<div style="font-size:0.9rem">${details}</div><div style="color:var(--muted);font-size:0.8rem;margin-top:6px">${new Date().toLocaleTimeString()}</div>`;
+            el.appendChild(right);
+
+            signalsBox.appendChild(el);
+        }
+
+        function addTradeHistory(tr) {
+            const row = document.createElement('tr');
+            row.className = 'new-row';
+            row.innerHTML = `<td>${tr.time}</td><td class="${tr.type === 'BUY' ? 'profit' : 'loss'}">${tr.type}</td><td>${tr.entry.toFixed(4)}</td><td>${tr.exit ? tr.exit.toFixed(4) : '—'}</td><td class="${tr.pnl >= 0 ? 'profit' : 'loss'}">${tr.pnl >= 0 ? '+' : ''}${tr.pnl.toFixed(2)}</td>`;
+            historyBody.prepend(row);
+
+            // keep history length reasonable
+            while (historyBody.children.length > 30) historyBody.removeChild(historyBody.lastChild);
+        }
+
+        // ---------- Heartbeat tick (UI friendly) ----------
+        function heartbeatTick() {
+            const now = Date.now();
+            if (now - lastHeartbeat > 5000) {
+                heartbeatEl.textContent = autoTrading ? 'Auto-trading ON • checking...' : 'Watching • no signal';
+                lastHeartbeat = now;
+            }
+        }
+        setInterval(heartbeatTick, 1000);
+
+        // ---------- Demo feed & demo signal detection ----------
+        // Replace this function by your real socket feed handler that calls onTick(price)
+        let demoPrice = 101400;
+        function simulateFeed() {
+            if (!simulatedConnected) return;
+            // tick every ~700-1400ms
+            const jitter = 300 + Math.random() * 900;
+            setTimeout(() => {
+                // small random walk
+                const change = (Math.random() - 0.48) * 40; // change amplitude adjustable
+                demoPrice = Math.max(100000, demoPrice + change);
+                onTick(demoPrice);
+                simulateFeed();
+            }, jitter);
+        }
+
+        // small indicator calculations used only for UI demo
+        function computeSimpleRSI(prices, period = 14) {
+            if (prices.length < period + 1) return null;
+            let gains = 0, losses = 0;
+            for (let i = prices.length - period; i < prices.length; i++) {
+                const d = prices[i] - prices[i - 1];
+                if (d > 0) gains += d; else losses += Math.abs(d);
+            }
+            if (losses === 0) return 100;
+            const rs = (gains / period) / (losses / period);
+            return 100 - (100 / (1 + rs));
+        }
+
+        // keep short history for UI
+        const uiPrices = [];
+
+        function onTick(price) {
+            // update chart
+            const nowLabel = new Date().toLocaleTimeString();
+            const data = chart.data;
+            data.labels.push(nowLabel);
+            data.datasets[0].data.push(price);
+            if (data.labels.length > 80) {
+                data.labels.shift(); data.datasets[0].data.shift();
+            }
+            chart.update('none');
+
+            // UI stats
+            statPrice.textContent = `Price: ${price.toFixed(4)}`;
+            uiPrices.push(price);
+            if (uiPrices.length > 300) uiPrices.shift();
+
+            const rsi = computeSimpleRSI(uiPrices, 14);
+            statRSI.textContent = `RSI: ${rsi ? rsi.toFixed(2) : '—'}`;
+            // compute simple EMA(50)
+            if (uiPrices.length >= 10) {
+                const emaPeriod = 50;
+                let k = 2 / (emaPeriod + 1), ema = uiPrices[0];
+                for (let i = 1; i < uiPrices.length; i++) { ema = (uiPrices[i] * k) + (ema * (1 - k)); }
+                statEMA.textContent = `EMA(${emaPeriod}): ${ema.toFixed(2)}`;
+                // compute simple BB (std dev)
+                const slice = uiPrices.slice(-20);
+                const mean = slice.reduce((a, b) => a + b, 0) / slice.length;
+                const sd = Math.sqrt(slice.reduce((a, b) => a + (b - mean) * (b - mean), 0) / slice.length);
+                statBB.textContent = `BB(mid): ${mean.toFixed(2)}  ±${(2 * sd).toFixed(2)}`;
+            }
+
+            // small simulated rule to sometimes generate signals (for demo)
+            // Replace with your actual HTF detection + ETF alignment logic wired to real candle streams
+            if (autoTrading && uiPrices.length > 50) {
+                const latest = uiPrices[uiPrices.length - 1];
+                const prev = uiPrices[uiPrices.length - 2];
+                // artificial "engulfing-like" randomness: if big move and RSI extreme, show signal
+                const r = computeSimpleRSI(uiPrices, 14);
+                if (r && r < 28 && latest < uiPrices[uiPrices.length - 10]) {
+                    // demo LONG
+                    addLog('Demo: HTF oversold detected → checking ETF alignment...', 'info');
+                    // small delay emulate ETF confirmation
+                    setTimeout(() => {
+                        showSignal({ type: 'LONG', confidence: 0.78, htf: '1H', details: 'MR @ BB low — 15M/5M aligned' });
+                        addLog('Signal → LONG (demo) • placing simulated entry', 'ok');
+                        // add a simulated trade after immediate entry/exit
+                        const entry = latest;
+                        setTimeout(() => {
+                            const exit = entry + (Math.random() * 120 + 20);
+                            const pnl = (exit - entry) * 0.0001 * 100; // demo scaling
+                            accountBalance += pnl;
+                            balanceEl.textContent = accountBalance.toFixed(2) + ' USD';
+                            addTradeHistory({ time: new Date().toLocaleTimeString(), type: 'BUY', entry, exit, pnl });
+                            addLog('Trade closed (demo) • PnL: ' + pnl.toFixed(2), pnl >= 0 ? 'ok' : 'warn');
+                            clearSignals(); // clear UI
+                        }, 3500);
+                    }, 600);
+                } else if (r && r > 72 && latest > uiPrices[uiPrices.length - 10]) {
+                    // demo SHORT
+                    addLog('Demo: HTF overbought detected → checking ETF alignment...', 'info');
+                    setTimeout(() => {
+                        showSignal({ type: 'SHORT', confidence: 0.82, htf: '2H', details: 'CONT break above EMA — 15M/5M aligned' });
+                        addLog('Signal → SHORT (demo) • placing simulated entry', 'ok');
+                        const entry = latest;
+                        setTimeout(() => {
+                            const exit = entry - (Math.random() * 120 + 20);
+                            const pnl = (entry - exit) * 0.0001 * 100;
+                            accountBalance += pnl;
+                            balanceEl.textContent = accountBalance.toFixed(2) + ' USD';
+                            addTradeHistory({ time: new Date().toLocaleTimeString(), type: 'SELL', entry, exit, pnl });
+                            addLog('Trade closed (demo) • PnL: ' + pnl.toFixed(2), pnl >= 0 ? 'ok' : 'warn');
+                            clearSignals();
+                        }, 3500);
+                    }, 600);
+                }
+            }
+        }
+
+        // ---------- Controls ----------
+        function startDemo() {
+            if (simulatedConnected) return;
+            simulatedConnected = true;
+            connStatus.textContent = '🟢 Connected (demo)';
+            addLog('Connected to demo feed', 'ok');
+            simulateFeed();
+        }
+        function stopDemo() {
+            simulatedConnected = false;
+            connStatus.textContent = '🔌 Disconnected';
+            addLog('Disconnected', 'warn');
+        }
+
+        toggleBtn.addEventListener('click', () => {
+            autoTrading = !autoTrading;
+            if (autoTrading) {
+                toggleBtn.textContent = '■ STOP';
+                toggleBtn.classList.add('stop');
+                startDemo();
+                addLog('Auto-trading ENABLED', 'ok');
+            } else {
+                toggleBtn.textContent = '▶ START';
+                toggleBtn.classList.remove('stop');
+                addLog('Auto-trading DISABLED', 'warn');
+            }
+        });
+
+        // ---------- Integration points for real Deriv WebSocket ----------
+        /*
+          When you want to replace the demo with a real connection:
+      
+          1) Call connectDeriv(appId, apiToken) to open the WebSocket.
+          2) On authorize success, subscribe to candles for your TFs:
+             send JSON like:
+             { "ticks_history": "R_75", "style": "candles", "count": 120, "granularity": 900, "end":"latest", "subscribe":1 }
+      
+          3) Handle incoming 'candles' and 'ohlc' messages:
+             - Map candles into the same shape used in your bot (epoch, open, high, low, close)
+             - Keep per-TF buffers (2H/1H/15M/5M)
+             - Call your HTF detection function; when HTF+ETF align, call showSignal() and log/execute.
+      
+          Example skeleton:
+          function connectDeriv(appId, token) {
+            const ws = new WebSocket(`wss://ws.derivws.com/websockets/v3?app_id=${appId}`);
+            ws.onopen = () => { ws.send(JSON.stringify({authorize: token})); }
+            ws.onmessage = (ev) => {
+              const data = JSON.parse(ev.data);
+              // handle authorize / candles / ohlc / buy responses
+            }
+          }
+        */
+
+        // ---------- Boot (UI) ----------
+        addLog('Dashboard ready', 'info');
+        clearSignals();
+
+        // If you want the demo feed running immediately, uncomment:
+        // toggleBtn.click();
+
+    </script>
 </body>
 
 </html>
