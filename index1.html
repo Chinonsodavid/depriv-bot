@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Multi-Timeframe Backtester</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #fafafa;
+        }
+
+        h1,
+        h2,
+        h3 {
+            margin: 10px 0;
+        }
+
+        label {
+            display: block;
+            margin: 5px 0;
+        }
+
+        input,
+        select,
+        button {
+            margin: 3px 0;
+            padding: 4px;
+        }
+
+        #results {
+            margin-top: 20px;
+        }
+
+        table {
+            border-collapse: collapse;
+            margin-top: 10px;
+            width: 100%;
+        }
+
+        th,
+        td {
+            border: 1px solid #ccc;
+            padding: 4px;
+            text-align: center;
+        }
+
+        .params,
+        .options {
+            margin-bottom: 20px;
+            padding: 10px;
+            border: 1px solid #ccc;
+            background: #fff;
+        }
+    </style>
+</head>
+
+<body>
+    <h1>Multi-Timeframe Backtester</h1>
+
+    <!-- Strategy Parameters -->
+    <div class="params">
+        <h2>Strategy Parameters</h2>
+
+        <label>HTF EMA: <input type="number" id="emaPeriod" value="50"></label>
+        <label>BB Period: <input type="number" id="bbPeriod" value="20"></label>
+        <label>BB Std Dev: <input type="number" id="bbStd" value="2"></label>
+        <label>Engulfing Confirmation:
+            <input type="checkbox" id="useEngulfing" checked>
+        </label>
+
+        <h3>Sessions</h3>
+        <label>London: <input type="time" id="lonStart" value="08:00"> –
+            <input type="time" id="lonEnd" value="11:59"></label>
+        <label>New York: <input type="time" id="nyStart" value="13:00"> –
+            <input type="time" id="nyEnd" value="16:59"></label>
+        <label>Max trades/session: <input type="number" id="maxTrades" value="2"></label>
+        <label>Pause after losses: <input type="number" id="lossPause" value="2"></label>
+
+        <h3>Risk Management</h3>
+        <label>Risk per trade (%): <input type="number" id="riskPct" value="1"></label>
+        <label>Stop Loss (points): <input type="number" id="stopLoss" value="50"></label>
+        <label>Take Profit (points): <input type="number" id="takeProfit" value="100"></label>
+
+        <h3>Instrument</h3>
+        <label>Default: <input type="text" id="instrument" value="R_75"></label>
+
+        <h3>Date Range</h3>
+        <label>From: <input type="date" id="dateFrom"></label>
+        <label>To: <input type="date" id="dateTo"></label>
+    </div>
+
+    <!-- Backtest Options -->
+    <div class="options">
+        <h2>Backtest Options</h2>
+        <label><input type="checkbox" id="useMTF" checked> Use Multi-Timeframe (2H + 1H + 15M + 5M)</label>
+        <label><input type="checkbox" id="useMR"> Enable Mean Reversion</label>
+        <label><input type="checkbox" id="useCONT"> Enable Continuation Logic</label>
+    </div>
+
+    <!-- Timeframe & Data Upload -->
+    <h2>Data Upload</h2>
+    <label><input type="checkbox" class="tfCheck" value="5m" checked> 5M</label>
+    <label><input type="checkbox" class="tfCheck" value="15m" checked> 15M</label>
+    <label><input type="checkbox" class="tfCheck" value="1h" checked> 1H</label>
+    <label><input type="checkbox" class="tfCheck" value="2h" checked> 2H</label>
+    <div id="fileInputs"></div>
+
+    <button id="runBtn">Run Backtest</button>
+
+    <!-- Results -->
+    <div id="results">
+        <h2>Results</h2>
+        <div id="summary"></div>
+        <table id="tradesTable">
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Direction</th>
+                    <th>Entry</th>
+                    <th>Exit</th>
+                    <th>P/L</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <script>
+        // === CSV Parser ===
+        function parseCSV(text) {
+            const rows = text.trim().split("\n").map(r => r.split(","));
+            return rows.slice(1).map(r => ({
+                timestamp: new Date(r[0]),
+                open: +r[1], high: +r[2], low: +r[3], close: +r[4]
+            }));
+        }
+
+        // === File Inputs ===
+        const fileInputsDiv = document.getElementById("fileInputs");
+        document.querySelectorAll(".tfCheck").forEach(cb => {
+            cb.addEventListener("change", () => {
+                fileInputsDiv.innerHTML = "";
+                document.querySelectorAll(".tfCheck:checked").forEach(c => {
+                    fileInputsDiv.innerHTML += `<label>${c.value} CSV: <input type="file" data-tf="${c.value}"></label><br>`;
+                });
+            });
+        });
+
+        // === Backtest Logic (Placeholder) ===
+        document.getElementById("runBtn").onclick = async () => {
+            const files = document.querySelectorAll("#fileInputs input[type=file]");
+            const datasets = {};
+            for (let f of files) {
+                const tf = f.dataset.tf;
+                if (f.files.length) {
+                    const txt = await f.files[0].text();
+                    datasets[tf] = parseCSV(txt);
+                }
+            }
+
+            // === Placeholder backtest ===
+            let trades = [];
+            let balance = 1000;
+            let wins = 0, losses = 0, maxDD = 0, peak = balance;
+
+            const data = datasets["5m"] || [];
+            for (let i = 1; i < data.length; i++) {
+                let dir = data[i].close > data[i - 1].close ? "BUY" : "SELL";
+                let entry = data[i].close;
+                let exit = entry + (dir === "BUY" ? 10 : -10); // placeholder P/L
+                let pl = exit - entry;
+                balance += pl;
+                if (pl > 0) wins++; else losses++;
+                peak = Math.max(peak, balance);
+                maxDD = Math.min(maxDD, balance - peak);
+                trades.push({ time: data[i].timestamp, dir, entry, exit, pl });
+            }
+
+            // === Display Summary ===
+            let summary = `
+    Total Trades: ${trades.length}<br>
+    Wins: ${wins} | Losses: ${losses}<br>
+    Win Rate: ${(wins / trades.length * 100).toFixed(1)}%<br>
+    Net Profit: ${(balance - 1000).toFixed(2)}<br>
+    Max Drawdown: ${maxDD.toFixed(2)}<br>
+    Avg R:R: ${(1.5).toFixed(2)} (placeholder)
+  `;
+            document.getElementById("summary").innerHTML = summary;
+
+            // === Display Trades ===
+            const tbody = document.querySelector("#tradesTable tbody");
+            tbody.innerHTML = "";
+            trades.forEach(t => {
+                tbody.innerHTML += `<tr>
+      <td>${t.time.toISOString()}</td>
+      <td>${t.dir}</td>
+      <td>${t.entry.toFixed(2)}</td>
+      <td>${t.exit.toFixed(2)}</td>
+      <td>${t.pl.toFixed(2)}</td>
+    </tr>`;
+            });
+        };
+    </script>
+</body>
+
+</html>
