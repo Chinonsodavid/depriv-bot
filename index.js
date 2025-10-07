@@ -1,17 +1,16 @@
 // index.js
 // Exact implementation of the Trading Bot Specification (BOS + pullback + engulf + MTF filters)
-// Uses M15 (execution), H1 (trend filter) and M5 (pullback + entry).
+// Uses M15 (execution) and M5 (pullback + entry).
 // Fixed SL = 300, TP = 600.
 
 import fs from "fs";
 import Papa from "papaparse";
-import { EMA, ATR, ADX, SMA } from "technicalindicators";
+import { EMA, ATR, SMA } from "technicalindicators";
 
 // ---------- CONFIG ----------
 const DATA_DIR = "./data";
 const M5_FILE = `${DATA_DIR}/R_75_5m.csv`;
 const M15_FILE = `${DATA_DIR}/R_75_15m.csv`;
-const H1_FILE = `${DATA_DIR}/R_75_1h.csv`;
 
 const START_BALANCE = 10000;
 const PIVOT_LEFT = 5;   // pivot left bars
@@ -19,7 +18,6 @@ const PIVOT_RIGHT = 5;  // pivot right bars
 const MIN_RETRACE_PCT = 0.20; // 20%
 const MAX_RETRACE_PCT = 0.60; // 60%
 const ATR_PERIOD = 14;
-const ADX_PERIOD = 14;
 const ATR_SMA_LEN = 50; // for strength test
 const FIXED_SL = 300; // points
 const FIXED_TP = 600; // points
@@ -72,15 +70,15 @@ function detectPivots(candles, left = PIVOT_LEFT, right = PIVOT_RIGHT) {
         const cur = candles[i];
         let isHigh = true, isLow = true;
         for (let l = 1; l <= left; l++) {
-            if (candles[i - l].high >= cur.high) isHigh = false;
-            if (candles[i - l].low <= cur.low) isLow = false;
+            if (candles[i - l].close >= cur.close) isHigh = false;
+            if (candles[i - l].close <= cur.close) isLow = false;
         }
         for (let r = 1; r <= right; r++) {
-            if (candles[i + r].high >= cur.high) isHigh = false;
-            if (candles[i + r].low <= cur.low) isLow = false;
+            if (candles[i + r].close >= cur.close) isHigh = false;
+            if (candles[i + r].close <= cur.close) isLow = false;
         }
-        if (isHigh) pivots.push({ idx: i, epoch: cur.epoch, type: "H", price: cur.high });
-        if (isLow) pivots.push({ idx: i, epoch: cur.epoch, type: "L", price: cur.low });
+        if (isHigh) pivots.push({ idx: i, epoch: cur.epoch, type: "H", price: cur.close });
+        if (isLow) pivots.push({ idx: i, epoch: cur.epoch, type: "L", price: cur.close });
     }
     return pivots;
 }
@@ -96,10 +94,9 @@ function isEngulfing(curr, prev, bullish) {
 // ---------- LOAD DATA ----------
 const m5 = loadCSV(M5_FILE);
 const m15 = loadCSV(M15_FILE);
-const h1 = loadCSV(H1_FILE);
 
-if (!m5.length || !m15.length || !h1.length) {
-    console.error("Missing one of M5/M15/H1 CSV files in ./data");
+if (!m5.length || !m15.length) {
+    console.error("Missing one of M5/M15 CSV files in ./data");
     process.exit(1);
 }
 
@@ -112,18 +109,9 @@ const m15ATRraw = ATR.calculate({ period: ATR_PERIOD, high: m15High, low: m15Low
 const m15ATR = padLeft(m15ATRraw, m15.length, null);
 const m15ATRSMA50 = padLeft(SMA.calculate({ period: ATR_SMA_LEN, values: m15ATRraw }), m15.length, null);
 
-// EMA50/EMA200 on M15 and H1
+// EMA50/EMA200 on M15
 const m15EMA50 = padLeft(EMA.calculate({ period: 50, values: m15Close }), m15.length, null);
 const m15EMA200 = padLeft(EMA.calculate({ period: 200, values: m15Close }), m15.length, null);
-const h1Close = h1.map(c => c.close);
-const h1EMA50 = padLeft(EMA.calculate({ period: 50, values: h1Close }), h1.length, null);
-const h1EMA200 = padLeft(EMA.calculate({ period: 200, values: h1Close }), h1.length, null);
-
-// ADX on H1 (returns objects { pdi, mdi, adx })
-const h1High = h1.map(c => c.high);
-const h1Low = h1.map(c => c.low);
-const h1ADXraw = ADX.calculate({ period: ADX_PERIOD, high: h1High, low: h1Low, close: h1Close });
-const h1ADX = padLeft(h1ADXraw.map(x => x.adx), h1.length, null);
 
 // ---------- PIVOTS on M15 ----------
 const m15Pivots = detectPivots(m15, PIVOT_LEFT, PIVOT_RIGHT);
@@ -131,6 +119,7 @@ const m15Pivots = detectPivots(m15, PIVOT_LEFT, PIVOT_RIGHT);
 // ---------- BACKTEST LOOP (M15 execution) ----------
 let balance = START_BALANCE;
 const trades = [];
+let lastTrade = { time: 0, direction: null };
 
 for (let m15i = 0; m15i < m15.length; m15i++) {
     const bar = m15[m15i];
@@ -153,19 +142,13 @@ for (let m15i = 0; m15i < m15.length; m15i++) {
     else if (lastL && bar.close < lastL.price) bos = { type: "BEAR", brokenSwing: lastL };
     else continue;
 
-    // 3) Multi-TF EMA50/EMA200 alignment on H1 & M15 must agree
-    const h1idx = findLastIndexLeq(h1, bar.epoch);
-    if (h1idx < 0) continue;
-    const h1trend = (h1EMA50[h1idx] !== null && h1EMA200[h1idx] !== null)
-        ? (h1EMA50[h1idx] > h1EMA200[h1idx] ? "BULL" : (h1EMA50[h1idx] < h1EMA200[h1idx] ? "BEAR" : null))
-        : null;
+    // 3) M15 EMA50/EMA200 trend
     const m15trend = (m15EMA50[m15i] !== null && m15EMA200[m15i] !== null)
         ? (m15EMA50[m15i] > m15EMA200[m15i] ? "BULL" : (m15EMA50[m15i] < m15EMA200[m15i] ? "BEAR" : null))
         : null;
-    if (!h1trend || !m15trend) continue;
-    if (h1trend !== m15trend) continue; // conflict -> no trade
+    if (!m15trend) continue;
     // BOS direction must match trend
-    if ((bos.type === "BULL" && h1trend !== "BULL") || (bos.type === "BEAR" && h1trend !== "BEAR")) continue;
+    if ((bos.type === "BULL" && m15trend !== "BULL") || (bos.type === "BEAR" && m15trend !== "BEAR")) continue;
 
     // 4) Measure BOS range
     const bosRange = Math.abs(bar.close - bos.brokenSwing.price);
@@ -175,7 +158,6 @@ for (let m15i = 0; m15i < m15.length; m15i++) {
     const m5StartIdx = findLastIndexLeq(m5, bar.epoch) + 1;
     if (m5StartIdx <= 0 || m5StartIdx >= m5.length) continue;
 
-    let maxRetracePct = 0;
     let engulfIdx = -1;
     for (let j = m5StartIdx; j < m5.length && (j - m5StartIdx) < MAX_LOOKAHEAD_M5_BARS; j++) {
         const m5c = m5[j];
@@ -188,24 +170,18 @@ for (let m15i = 0; m15i < m15.length; m15i++) {
         } else {
             retracePct = (m5c.close - bar.close) / bosRange;
         }
-        if (retracePct > maxRetracePct) maxRetracePct = retracePct;
-
-        if (retracePct > MAX_RETRACE_PCT) break; // too deep -> abort
+        if (retracePct > MAX_RETRACE_PCT) continue; // too deep -> skip this candle
 
         const bullEngulf = isEngulfing(m5c, prev, true);
         const bearEngulf = isEngulfing(m5c, prev, false);
 
-        if (bos.type === "BULL" && bullEngulf) {
-            if (maxRetracePct >= MIN_RETRACE_PCT) {
-                engulfIdx = j;
-                break;
-            }
+        if (bos.type === "BULL" && bullEngulf && retracePct >= MIN_RETRACE_PCT && retracePct <= MAX_RETRACE_PCT) {
+            engulfIdx = j;
+            break;
         }
-        if (bos.type === "BEAR" && bearEngulf) {
-            if (maxRetracePct >= MIN_RETRACE_PCT) {
-                engulfIdx = j;
-                break;
-            }
+        if (bos.type === "BEAR" && bearEngulf && retracePct >= MIN_RETRACE_PCT && retracePct <= MAX_RETRACE_PCT) {
+            engulfIdx = j;
+            break;
         }
     }
     if (engulfIdx === -1) continue;
@@ -213,24 +189,21 @@ for (let m15i = 0; m15i < m15.length; m15i++) {
     // 6) Re-check EMA alignment & strength at engulf time
     const engulfEpoch = m5[engulfIdx].epoch;
     const m15idxAtEngulf = findLastIndexLeq(m15, engulfEpoch);
-    const h1idxAtEngulf = findLastIndexLeq(h1, engulfEpoch);
-    if (m15idxAtEngulf < 0 || h1idxAtEngulf < 0) continue;
+    if (m15idxAtEngulf < 0) continue;
 
     const m15trendNow = (m15EMA50[m15idxAtEngulf] !== null && m15EMA200[m15idxAtEngulf] !== null)
         ? (m15EMA50[m15idxAtEngulf] > m15EMA200[m15idxAtEngulf] ? "BULL" : (m15EMA50[m15idxAtEngulf] < m15EMA200[m15idxAtEngulf] ? "BEAR" : null))
         : null;
-    const h1trendNow = (h1EMA50[h1idxAtEngulf] !== null && h1EMA200[h1idxAtEngulf] !== null)
-        ? (h1EMA50[h1idxAtEngulf] > h1EMA200[h1idxAtEngulf] ? "BULL" : (h1EMA50[h1idxAtEngulf] < h1EMA200[h1idxAtEngulf] ? "BEAR" : null))
-        : null;
-    if (!m15trendNow || !h1trendNow) continue;
-    if (m15trendNow !== h1trendNow) continue;
+    if (!m15trendNow) continue;
     if ((bos.type === "BULL" && m15trendNow !== "BULL") || (bos.type === "BEAR" && m15trendNow !== "BEAR")) continue;
 
-    const adxNow = h1ADX[h1idxAtEngulf];
     const m15AtrNow = m15ATR[m15idxAtEngulf];
     const m15AtrSMA50Now = m15ATRSMA50[m15idxAtEngulf];
-    const strengthNow = (adxNow !== null && adxNow > 20) || (m15AtrNow !== null && m15AtrSMA50Now !== null && m15AtrNow > m15AtrSMA50Now);
+    const strengthNow = (m15AtrNow !== null && m15AtrSMA50Now !== null && m15AtrNow > m15AtrSMA50Now);
     if (!strengthNow) continue;
+
+    // Prevent repeated trades within same candle timestamp
+    if (engulfEpoch === lastTrade.time) continue;
 
     // 7) Place trade at close of engulfing M5 candle, with FIXED SL/TP
     const entryPrice = m5[engulfIdx].close;
@@ -290,6 +263,9 @@ for (let m15i = 0; m15i < m15.length; m15i++) {
         balance
     };
     trades.push(trade);
+
+    // Update last trade memory
+    lastTrade = { time: engulfEpoch, direction: bos.type };
 
     console.log(`${epochISO(trade.entryEpoch)} | ${trade.type} | ${trade.direction} | entry ${fmt(trade.entryPrice)} | SL ${fmt(trade.stopPrice)} | TP ${fmt(trade.targetPrice)} | ${trade.result} | PnL ${trade.pnl.toFixed(4)} | Bal ${trade.balance.toFixed(2)}`);
 }
