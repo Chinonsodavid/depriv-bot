@@ -5,7 +5,7 @@ import csv from "csv-parser";
 
 // === CONFIG ===
 const DATA_DIR = "./data";
-const DATA_PATH = `${DATA_DIR}/R_75_15m.csv`; // Must contain: time,open,high,low,close
+const DATA_PATH = `${DATA_DIR}/R_75_15m.csv`; // Must contain: epoch,open,high,low,close
 const SWING_SIZE = 3;               // Bars left/right to confirm a swing
 const MIN_IMPULSE_CANDLES = 2;      // Minimum impulsive candles between swings
 const MIN_LEG_PTS = 0;              // Optional: min distance in price units
@@ -33,7 +33,8 @@ function loadDataFromCSV(filePath) {
             .pipe(csv())
             .on("data", (r) =>
                 rows.push({
-                    time: r.time,
+                    epoch: parseInt(r.epoch),
+                    time: new Date(parseInt(r.epoch) * 1000).toISOString(),
                     open: parseFloat(r.open),
                     high: parseFloat(r.high),
                     low: parseFloat(r.low),
@@ -98,6 +99,8 @@ function detectBOSFromSwings(swings, candles) {
                             time: s.time,
                             startTime: candles[startIdx].time,
                             endTime: candles[endIdx].time,
+                            startEpoch: candles[startIdx].epoch,
+                            endEpoch: candles[endIdx].epoch,
                             startPrice,
                             endPrice,
                             legPts,
@@ -140,6 +143,8 @@ function detectBOSFromSwings(swings, candles) {
                             time: s.time,
                             startTime: candles[startIdx].time,
                             endTime: candles[endIdx].time,
+                            startEpoch: candles[startIdx].epoch,
+                            endEpoch: candles[endIdx].epoch,
                             startPrice,
                             endPrice,
                             legPts,
@@ -167,7 +172,8 @@ function detectBOSFromSwings(swings, candles) {
         for (const e of events) {
             console.log(
                 `${e.time} | ${e.type.padEnd(10)} | ${e.startPrice.toFixed(2)} → ${e.endPrice.toFixed(2)} ` +
-                `(${Math.abs(e.legPts).toFixed(2)} pts) | start=${e.startTime} | end=${e.endTime} | dirCandles=${e.dirCandles}`
+                `(${Math.abs(e.legPts).toFixed(2)} pts)` +
+                `| startEpoch=${e.startEpoch} | endEpoch=${e.endEpoch} | dirCandles=${e.dirCandles}`
             );
         }
     }
