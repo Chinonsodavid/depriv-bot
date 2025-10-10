@@ -1,110 +1,90 @@
-// index.js
 import fs from "fs";
 import path from "path";
 import csv from "csv-parser";
 
-// === CONFIG ===
-const DATA_DIR = "./data";
-const DATA_PATH = `${DATA_DIR}/R_75_15m.csv`; // Must contain: epoch,open,high,low,close
-const SWING_SIZE = 3;               // Bars left/right to confirm a swing
-const MIN_IMPULSE_CANDLES = 2;      // Minimum impulsive candles between swings
-const MIN_LEG_PTS = 0;              // Optional: min distance in price units
-const DEBUG_PRINT = true;           // Toggle console output
+const DATA_PATH = "data/R_75_15m.csv";
+const SWING_SIZE = 3;
 
-// === UTIL: Swing High/Low ===
-function isSwingHigh(candles, i, size) {
+// ----------- Detect swing highs and lows -----------
+const isSwingHigh = (candles, i, size) => {
     if (i < size || i >= candles.length - size) return false;
     const hi = candles[i].high;
     for (let k = i - size; k <= i + size; k++) if (candles[k].high > hi) return false;
     return true;
-}
-function isSwingLow(candles, i, size) {
+};
+
+const isSwingLow = (candles, i, size) => {
     if (i < size || i >= candles.length - size) return false;
     const lo = candles[i].low;
     for (let k = i - size; k <= i + size; k++) if (candles[k].low < lo) return false;
     return true;
-}
+};
 
-// === Load Candle Data ===
+// ----------- CSV Loader (convert epoch → ISO time) -----------
 function loadDataFromCSV(filePath) {
     return new Promise((resolve, reject) => {
         const rows = [];
         fs.createReadStream(filePath)
             .pipe(csv())
-            .on("data", (r) =>
+            .on("data", (r) => {
+                const epoch = parseInt(r.epoch); // ⬅️ use the 'epoch' column
+                const timeISO = new Date(epoch * 1000).toISOString(); // ⬅️ convert to readable date
+
                 rows.push({
-                    epoch: parseInt(r.epoch),
-                    time: new Date(parseInt(r.epoch) * 1000).toISOString(),
+                    time: timeISO, // ⬅️ store readable timestamp
                     open: parseFloat(r.open),
                     high: parseFloat(r.high),
                     low: parseFloat(r.low),
                     close: parseFloat(r.close),
-                })
-            )
+                });
+            })
             .on("end", () => resolve(rows))
-            .on("error", reject);
+            .on("error", (err) => reject(err));
     });
 }
 
-// === Detect Raw Swings ===
-function detectRawSwings(candles) {
-    const swings = [];
-    for (let i = SWING_SIZE; i < candles.length - SWING_SIZE; i++) {
-        if (isSwingHigh(candles, i, SWING_SIZE))
-            swings.push({ type: "H", index: i, price: candles[i].high, time: candles[i].time });
-        if (isSwingLow(candles, i, SWING_SIZE))
-            swings.push({ type: "L", index: i, price: candles[i].low, time: candles[i].time });
-    }
-    swings.sort((a, b) => a.index - b.index);
-    return swings;
-}
-
-// === BOS + CHoCH Detector ===
+// ----------- BOS + CHoCH detection -----------
 function detectBOSFromSwings(swings, candles) {
     const events = [];
     let lastHighSeen = null;
     let lastLowSeen = null;
-    let currentTrend = null; // "bullish" | "bearish"
+    let currentTrend = null;
 
     for (let i = 0; i < swings.length; i++) {
         const s = swings[i];
+        const candle = candles[s.index];
 
-        // === Bullish BOS or CHoCH ===
+        // ==== BULLISH BOS ====
         if (s.type === "H") {
-            if (lastHighSeen && s.price > lastHighSeen.price) {
-                let prevLow = null;
-                for (let j = i - 1; j >= 0; j--) {
-                    if (swings[j].type === "L") {
-                        prevLow = swings[j];
-                        break;
-                    }
-                }
-                if (prevLow) {
-                    const startIdx = prevLow.index;
-                    const endIdx = s.index;
-                    const startPrice = prevLow.price;
-                    const endPrice = s.price;
-                    const legPts = endPrice - startPrice;
+            if (lastHighSeen) {
+                const prevCandle = candles[lastHighSeen.index];
+                const prevBodyHigh = Math.max(prevCandle.open, prevCandle.close);
+                const prevWickHigh = prevCandle.high;
+                const curBodyLow = Math.min(candle.open, candle.close);
 
-                    let dirCandles = 0;
-                    for (let k = startIdx + 1; k <= endIdx; k++) {
-                        if (candles[k].close > candles[k - 1].close) dirCandles++;
+                const brokeBody = curBodyLow > prevBodyHigh && candle.close > prevWickHigh;
+                if (brokeBody) {
+                    let prevLow = null;
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (swings[j].type === "L") {
+                            prevLow = swings[j];
+                            break;
+                        }
                     }
-
-                    const isImpulsive = dirCandles >= MIN_IMPULSE_CANDLES || legPts >= MIN_LEG_PTS;
-                    if (isImpulsive) {
+                    if (prevLow) {
+                        const startIdx = prevLow.index;
+                        const endIdx = s.index;
+                        const startPrice = prevLow.price;
+                        const endPrice = candle.high;
+                        const legPts = endPrice - startPrice;
                         const eventType = currentTrend === "bearish" ? "CHoCH_UP" : "BOS_UP";
+
                         events.push({
+                            timestamp: candle.time, // 🕒 readable timestamp
                             type: eventType,
-                            time: s.time,
-                            startTime: candles[startIdx].time,
-                            endTime: candles[endIdx].time,
-                            startEpoch: candles[startIdx].epoch,
-                            endEpoch: candles[endIdx].epoch,
                             startPrice,
                             endPrice,
                             legPts,
-                            dirCandles,
                         });
                         currentTrend = "bullish";
                     }
@@ -113,42 +93,37 @@ function detectBOSFromSwings(swings, candles) {
             lastHighSeen = s;
         }
 
-        // === Bearish BOS or CHoCH ===
+        // ==== BEARISH BOS ====
         else if (s.type === "L") {
-            if (lastLowSeen && s.price < lastLowSeen.price) {
-                let prevHigh = null;
-                for (let j = i - 1; j >= 0; j--) {
-                    if (swings[j].type === "H") {
-                        prevHigh = swings[j];
-                        break;
-                    }
-                }
-                if (prevHigh) {
-                    const startIdx = prevHigh.index;
-                    const endIdx = s.index;
-                    const startPrice = prevHigh.price;
-                    const endPrice = s.price;
-                    const legPts = startPrice - endPrice;
+            if (lastLowSeen) {
+                const prevCandle = candles[lastLowSeen.index];
+                const prevBodyLow = Math.min(prevCandle.open, prevCandle.close);
+                const prevWickLow = prevCandle.low;
+                const curBodyHigh = Math.max(candle.open, candle.close);
 
-                    let dirCandles = 0;
-                    for (let k = startIdx + 1; k <= endIdx; k++) {
-                        if (candles[k].close < candles[k - 1].close) dirCandles++;
+                const brokeBody = curBodyHigh < prevBodyLow && candle.close < prevWickLow;
+                if (brokeBody) {
+                    let prevHigh = null;
+                    for (let j = i - 1; j >= 0; j--) {
+                        if (swings[j].type === "H") {
+                            prevHigh = swings[j];
+                            break;
+                        }
                     }
-
-                    const isImpulsive = dirCandles >= MIN_IMPULSE_CANDLES || legPts >= MIN_LEG_PTS;
-                    if (isImpulsive) {
+                    if (prevHigh) {
+                        const startIdx = prevHigh.index;
+                        const endIdx = s.index;
+                        const startPrice = prevHigh.price;
+                        const endPrice = candle.low;
+                        const legPts = startPrice - endPrice;
                         const eventType = currentTrend === "bullish" ? "CHoCH_DOWN" : "BOS_DOWN";
+
                         events.push({
+                            timestamp: candle.time, // 🕒 readable timestamp
                             type: eventType,
-                            time: s.time,
-                            startTime: candles[startIdx].time,
-                            endTime: candles[endIdx].time,
-                            startEpoch: candles[startIdx].epoch,
-                            endEpoch: candles[endIdx].epoch,
                             startPrice,
                             endPrice,
                             legPts,
-                            dirCandles,
                         });
                         currentTrend = "bearish";
                     }
@@ -157,24 +132,41 @@ function detectBOSFromSwings(swings, candles) {
             lastLowSeen = s;
         }
     }
-
     return events;
 }
 
-// === MAIN EXECUTION ===
-(async function main() {
-    const candles = await loadDataFromCSV(DATA_PATH);
-    const swings = detectRawSwings(candles);
-    const events = detectBOSFromSwings(swings, candles);
+// ----------- Swing detection -----------
+function detectSwings(candles) {
+    const swings = [];
+    for (let i = SWING_SIZE; i < candles.length - SWING_SIZE; i++) {
+        if (isSwingHigh(candles, i, SWING_SIZE))
+            swings.push({ type: "H", index: i, price: candles[i].high });
+        if (isSwingLow(candles, i, SWING_SIZE))
+            swings.push({ type: "L", index: i, price: candles[i].low });
+    }
+    return swings;
+}
 
-    if (DEBUG_PRINT) {
-        console.log("📈 STRUCTURE EVENTS (" + events.length + " total):\n");
+// ----------- Main -----------
+(async function main() {
+    try {
+        const candles = await loadDataFromCSV(DATA_PATH);
+        const swings = detectSwings(candles);
+        const events = detectBOSFromSwings(swings, candles);
+
+        console.log(`📊 BOS/CHoCH Detection Results`);
+        console.log(`Generated: ${new Date().toLocaleString()}`);
+        console.log(`Source: ${DATA_PATH}`);
+        console.log(`Detected Events: ${events.length}\n`);
+
         for (const e of events) {
             console.log(
-                `${e.time} | ${e.type.padEnd(10)} | ${e.startPrice.toFixed(2)} → ${e.endPrice.toFixed(2)} ` +
-                `(${Math.abs(e.legPts).toFixed(2)} pts)` +
-                `| startEpoch=${e.startEpoch} | endEpoch=${e.endEpoch} | dirCandles=${e.dirCandles}`
+                `${e.timestamp} | ${e.type.padEnd(11)} | ${e.startPrice.toFixed(
+                    2
+                )} → ${e.endPrice.toFixed(2)} (${e.legPts.toFixed(2)} pts)`
             );
         }
+    } catch (err) {
+        console.error("Error:", err);
     }
 })();
